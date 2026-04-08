@@ -1,4 +1,4 @@
-# ESRL: PPO Locomotion for Unitree G1 in MuJoCo
+P-O_RL: PPO Locomotion for Unitree G1 in MuJoCo
 
 一个基于 **MuJoCo + Ray 并行采样 + PPO** 的 Unitree G1 行走训练项目。  
 目标是让 29 DoF 人形机器人在仿真中学会稳定前进步态。
