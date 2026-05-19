@@ -41,8 +41,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--env", required=True, type=str)
     parser.add_argument("--logdir", default=Path("runs/train"), type=Path, help="Path to save weights and logs")
-    parser.add_argument("--n-itr", type=int, default=500, help="Number of iterations of the learning algorithm")
-    parser.add_argument("--lr", type=float, default=3e-4, help="Adam learning rate") # Xie
+    parser.add_argument("--n-itr", type=int, default=10000, help="Number of iterations of the learning algorithm")
+    parser.add_argument("--lr", type=float, default=3e-4, help="Adam learning rate")
     parser.add_argument("--eps", type=float, default=1e-5, help="Adam epsilon (for numerical stability)")
     parser.add_argument("--lam", type=float, default=0.95, help="Generalized advantage estimate discount")
     parser.add_argument("--gamma", type=float, default=0.995, help="MDP discount")
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-procs", type=int, default=16, help="Number of threads to train on")
     parser.add_argument("--max-grad-norm", type=float, default=0.5, help="Value to clip gradients at")
     parser.add_argument("--max-traj-len", type=int, default=3000, help="Max episode horizon")
-    parser.add_argument("--max-n-traj", type=int, default=4, help="Max traj number")
+    parser.add_argument("--max-n-traj", type=int, default=2, help="Max traj number")
     parser.add_argument("--eval-freq", required=False, default=50, type=int, help="Frequency of performing evaluation")
     parser.add_argument("--continued", required=False, type=Path, help="path to pretrained weights")
     parser.add_argument("--recurrent", required=False, action="store_true", help="use LSTM instead of FF")

@@ -63,7 +63,7 @@ class Gaussian_FF_Actor(Actor):
 
         return mu, std, log_std
 
-    def distribution(self, state):
+    def distribution(self, state, mask=None):
         mu, std, log_std = self.dist_params(state)
         base_dist = torch.distributions.Normal(mu, std)
 
@@ -142,7 +142,7 @@ class Gaussian_LSTM_Actor(Actor):
         self.hidden = [torch.zeros(batch_size, l.hidden_size, device=device, dtype=dtype) for l in self.actor_layers]
         self.cells = [torch.zeros(batch_size, l.hidden_size, device=device, dtype=dtype) for l in self.actor_layers]
 
-    def dist_params(self, state):
+    def dist_params(self, state, mask=None):
         #state = self.normalize_state(state, update=self.training)
 
         dims = len(state.size())
@@ -150,9 +150,15 @@ class Gaussian_LSTM_Actor(Actor):
         if dims == 3: # (t, b, )
             y = []
             for t, x_t in enumerate(x):
+                mask_t = None if mask is None else mask[t].to(x_t.dtype)
                 for idx, layer in enumerate(self.actor_layers):
                     h, c = self.hidden[idx], self.cells[idx]
-                    self.hidden[idx], self.cells[idx] = layer(x_t, (h, c))
+                    h_new, c_new = layer(x_t, (h, c))
+                    if mask_t is not None:
+                        # Padding 时间步不再推进隐藏状态。
+                        h_new = mask_t * h_new + (1.0 - mask_t) * h
+                        c_new = mask_t * c_new + (1.0 - mask_t) * c
+                    self.hidden[idx], self.cells[idx] = h_new, c_new
                     x_t = self.hidden[idx]
                 y.append(x_t)
             x = torch.stack(y)
@@ -174,8 +180,8 @@ class Gaussian_LSTM_Actor(Actor):
 
         return mu, std, log_std
 
-    def distribution(self, state):
-        mu, std, log_std = self.dist_params(state)
+    def distribution(self, state, mask=None):
+        mu, std, log_std = self.dist_params(state, mask=mask)
         base_dist = torch.distributions.Normal(mu, std)
 
         if not self.bounded:

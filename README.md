@@ -1,43 +1,58 @@
-P-O_RL: PPO Locomotion for Unitree G1 in MuJoCo
+# P-O_RL
 
-一个基于 **MuJoCo + Ray 并行采样 + PPO** 的 Unitree G1 行走训练项目。  
-目标是让 29 DoF 人形机器人在仿真中学会稳定前进步态。
+P-O_RL is a reinforcement learning project for training locomotion policies for the Unitree G1 humanoid robot in MuJoCo. The repository focuses on a practical PPO training loop with parallel rollout collection, configurable reward shaping, and a lightweight inference entrypoint for evaluating trained policies.
 
-## Features
+## Overview
 
-- MuJoCo 物理仿真环境（`envs/mujoco_env.py`）
-- Ray 多进程并行采样（`--num-procs`）
-- PPO（支持 FF / LSTM policy）
-- 可配置奖励项与系数（`envs/env_config.py` + `envs/reward.py`）
-- TensorBoard 日志与 checkpoint 保存
+This project implements a humanoid locomotion stack built around:
 
-## Project Structure
+- `MuJoCo` for rigid-body simulation
+- `PPO` for on-policy policy optimization
+- `Ray` for parallel trajectory sampling
+- `PyTorch` for actor/critic modeling and optimization
+
+The current setup targets a 29-DoF Unitree G1 model and is primarily oriented toward forward walking under command-conditioned reward shaping.
+
+## Highlights
+
+- Parallel rollout collection with Ray workers
+- Feed-forward and recurrent (LSTM) PPO policies
+- PD-controlled action interface on top of MuJoCo simulation
+- Centralized reward and environment configuration
+- TensorBoard logging and periodic checkpoint export
+- Separate training and inference entrypoints
+
+## Repository Layout
 
 ```text
-esrl/
+P-O_RL/
 ├── envs/
-│   ├── env_config.py      # 环境/控制/奖励配置
-│   ├── mujoco_env.py      # MuJoCo 环境主逻辑
-│   ├── reward.py          # 奖励函数定义
-│   └── robot_interface.py # 机器人状态与接触接口
+│   ├── env_config.py      # Environment, command, normalization, control, reward scales
+│   ├── mujoco_env.py      # MuJoCo environment and simulation loop
+│   ├── reward.py          # Reward term implementation
+│   └── robot_interface.py # Robot state, kinematics, contacts, and torque limits
+├── models/unitree_g1/     # MuJoCo XML assets and meshes for Unitree G1
 ├── rl/
-│   ├── policies/          # actor / critic 网络
-│   └── ppo/               # PPO 训练主流程与buffer
-├── models/unitree_g1/     # MuJoCo XML 与网格
-├── train.py               # 训练入口
-└── run.py                 # 推理入口
+│   ├── policies/          # Actor and critic networks
+│   └── ppo/               # PPO trainer, rollout buffer, and config
+├── scripts/
+│   └── export_tb.py       # Utility script for exporting TensorBoard scalars
+├── train.py               # Training entrypoint
+├── run.py                 # Evaluation / playback entrypoint
+└── README.md
 ```
 
-## Requirements
+## Environment Requirements
 
-- Python 3.10+（推荐）
-- MuJoCo Python 包
+- Python 3.10 or newer
+- MuJoCo Python bindings
 - PyTorch
 - Ray
-- NumPy / SciPy
+- NumPy
+- SciPy
 - TensorBoard
 
-示例安装（仅供参考）：
+Example setup:
 
 ```bash
 python -m venv .venv
@@ -46,11 +61,11 @@ pip install --upgrade pip
 pip install torch ray numpy scipy mujoco tensorboard
 ```
 
-如果你在无显示环境（服务器）运行 MuJoCo，可能需要额外配置 EGL/OSMesa。
+If you are running on a headless machine, MuJoCo may require additional EGL or OSMesa configuration depending on your system.
 
-## Training
+## Quick Start
 
-推荐从电子皮肤版本场景开始：
+### 1. Train a policy
 
 ```bash
 python train.py \
@@ -60,14 +75,9 @@ python train.py \
   --max-traj-len 3000
 ```
 
-训练输出默认保存在 `runs/train/exp*/`，包括：
+Training logs and checkpoints are written under `runs/train/exp*/`.
 
-- `actor.pt`, `critic.pt`（当前最优）
-- `actor_<itr>.pt`, `critic_<itr>.pt`（定期评估快照）
-- `experiment.pkl`（训练参数）
-- `events.out.tfevents.*`（TensorBoard）
-
-继续训练（resume）示例：
+### 2. Resume training
 
 ```bash
 python train.py \
@@ -77,7 +87,9 @@ python train.py \
   --n-itr 300
 ```
 
-## Evaluation / Play
+### 3. Run evaluation
+
+Using an experiment directory:
 
 ```bash
 python run.py \
@@ -85,7 +97,7 @@ python run.py \
   --path runs/train/exp1
 ```
 
-也可以直接传入 actor 文件路径：
+Using a direct actor checkpoint:
 
 ```bash
 python run.py \
@@ -93,37 +105,42 @@ python run.py \
   --path runs/train/exp1/actor.pt
 ```
 
-说明：
+`run.py` resolves the matching critic checkpoint from the same directory automatically.
 
-- `run.py` 会自动从同目录加载对应的 `critic*.pt`。
-- 是否渲染由 `envs/env_config.py` 的 `G1Cfg.env.if_render` 控制（默认 `False`）。
+## Training Outputs
 
-## TensorBoard
+Each experiment directory typically contains:
+
+- `actor.pt`, `critic.pt`: latest or best exported checkpoints
+- `actor_<itr>.pt`, `critic_<itr>.pt`: periodic snapshot checkpoints
+- `experiment.pkl`: serialized training arguments
+- `events.out.tfevents.*`: TensorBoard event files
+
+Launch TensorBoard with:
 
 ```bash
 tensorboard --logdir runs/train
 ```
 
-## Key Configs
+## Important Runtime Configuration
 
-- 训练超参入口：`train.py`
-- 奖励与控制参数：`envs/env_config.py`
-- 奖励函数实现：`envs/reward.py`
+Most behavior is controlled from the following files:
 
-建议先调这几项：
+- `train.py`: PPO hyperparameters and runtime flags
+- `envs/env_config.py`: reward scales, command ranges, control gains, observation normalization
+- `envs/reward.py`: reward term definitions
+- `envs/mujoco_env.py`: simulation loop, reset logic, action processing, termination logic
 
-- `tracking_lin_vel`, `tracking_ang_vel`
-- `orientation`, `base_height`, `termination`
-- `action_rate`, `torques`
-- `max-traj-len`, `num-procs`, `epochs`, `minibatch-size`
+Useful parameters to tune first:
 
-## Open-source Notes
-
-- 本仓库已通过 `.gitignore` 忽略训练产物（如 `runs/`, `*.pt`, `*.pkl`）。
-- 发布前请确认 `models/` 中第三方模型/网格的再分发许可。
-
-## Known Limitations
-
-- `run.py` 中 `--out-dir` / `--ep-len` 参数当前未实际用于导出视频。
-- 不同机器上的 MuJoCo 图形后端配置可能不同，需要按环境调整。
-
+- `--num-procs`
+- `--n-itr`
+- `--max-traj-len`
+- `--epochs`
+- `--minibatch-size`
+- `tracking_lin_vel`
+- `tracking_ang_vel`
+- `orientation`
+- `base_height`
+- `action_rate`
+- `torques`

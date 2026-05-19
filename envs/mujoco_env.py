@@ -49,6 +49,7 @@ class MujocoEnv: # 仿真环境接口
         self.last_actions = self.actions
         self.commands = np.zeros(self.commands_cfg.num_commands, dtype=float) # 指令
         self.leg_phase = np.zeros(self.env.num_feet, dtype=float) # 腿部相位
+        self.reward.reset_episode(len(self.feet_names))
 
         self.resample_commands() # 更新指令
     
@@ -198,13 +199,14 @@ class MujocoEnv: # 仿真环境接口
 
         self.reward.projected_gravity_xy = self.robot.get_root_projected_gravity()[:2].copy()
 
-        self.reward.root_height = float(self.robot.get_body_pos(self.env.robot_body_name)[0, 2])
+        self.reward.root_height = float(self.robot.get_body_pos(self.env.robot_root_name)[0, 2])
 
         self.reward.commands = self.commands.copy()
         self.reward.torques = self.robot.get_motor_torque()
         self.reward.dof_vel = self.robot.get_qvel()[6:].copy() # 剔除前6项（free joint）
         self.reward.dof_acc = self.robot.get_qacc()[6:].copy()
         self.reward.dof_pos = self.robot.get_qpos()[7:].copy() # 剔除前7项（free joint pos+quat）
+        self.reward.default_dof_pos = self.robot.default_dof_pos[7:].copy()
         self.reward.pos_limits = self.robot.get_joint_pos_limits()[1:].copy()
         self.reward.actions = self.actions.copy()
         self.reward.last_actions = self.last_actions.copy()
@@ -215,10 +217,11 @@ class MujocoEnv: # 仿真环境接口
         self.reward.feet_vel = feet_vel6_world[:, 3:6].copy()
 
         f6_cf = self.robot.get_body_floor_confrc_contactframe(self.feet_names) # (N,6) in contact frame
-        fn = f6_cf[:, 0].copy()  # normal force
+        fn = np.abs(f6_cf[:, 0].copy())  # normal force
         feet_confrc = np.zeros((len(self.feet_names), 3), dtype=np.float64)
         feet_confrc[:, 2] = fn
         self.reward.feet_confrc = feet_confrc
+        self.reward.feet_contact = (fn > 1.0).astype(np.float64)
 
         self.reward.leg_phase = self.leg_phase.copy()
 
@@ -247,7 +250,7 @@ class MujocoEnv: # 仿真环境接口
     def check_termination(self): # 终止检测
         # 接触力终止
         f6_cf = self.robot.get_body_floor_confrc_contactframe(self.env.terminate_after_contacts_on)
-        fn = f6_cf[:, 0] # normal force
+        fn = np.abs(f6_cf[:, 0]) # normal force
 
         contact_terminate = np.any(fn > 50.0)
 
@@ -274,6 +277,7 @@ class MujocoEnv: # 仿真环境接口
 
     def prepare_reward_function(self): # 准备scale非0奖励函数列表
         self.reward.feet_ids = self.feet_ids
+        self.reward.dt = self.dt
 
         for key in list(self.reward.scales.keys()): # 清除scale为0的奖励并乘dt
             scale = self.reward.scales[key]

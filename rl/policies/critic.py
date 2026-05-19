@@ -24,7 +24,7 @@ class FF_V(Critic):
         if normc_init:
             self.apply(normc_fn)
 
-    def forward(self, state):
+    def forward(self, state, mask=None):
         #state = self.normalize_state(state, update=self.training)
 
         x = state
@@ -58,16 +58,22 @@ class LSTM_V(Critic):
         self.hidden = [torch.zeros(batch_size, l.hidden_size, device=device, dtype=dtype) for l in self.critic_layers]
         self.cells = [torch.zeros(batch_size, l.hidden_size, device=device, dtype=dtype) for l in self.critic_layers]
 
-    def forward(self, state):
+    def forward(self, state, mask=None):
         #state = self.normalize_state(state, update=self.training)
 
         dims = len(state.size())
         if dims == 3:
             values = []
             for t, x_t in enumerate(state):
+                mask_t = None if mask is None else mask[t].to(x_t.dtype)
                 for idx, layer in enumerate(self.critic_layers):
                     c, h = self.cells[idx], self.hidden[idx]
-                    self.hidden[idx], self.cells[idx] = layer(x_t, (h, c))
+                    h_new, c_new = layer(x_t, (h, c))
+                    if mask_t is not None:
+                        # Padding 时间步不再推进隐藏状态。
+                        h_new = mask_t * h_new + (1.0 - mask_t) * h
+                        c_new = mask_t * c_new + (1.0 - mask_t) * c
+                    self.hidden[idx], self.cells[idx] = h_new, c_new
                     x_t = self.hidden[idx]
                 val = self.network_out(x_t)
                 values.append(val)

@@ -3,7 +3,7 @@ import csv
 from collections import defaultdict
 from tensorboard.backend.event_processing import event_accumulator
 
-logdir = Path("/home/rog-server/esrl/runs/train/exp158")
+logdir = Path("/home/rog-server/P-O_RL/runs/train/exp170")
 outpath = logdir / "all_scalars_wide.csv"
 
 event_files = sorted(logdir.glob("events.out.tfevents.*"))

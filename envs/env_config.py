@@ -39,9 +39,9 @@ class G1Cfg():
 
     class rewards:
         only_positive_rewards = False
-        tracking_sigma = 0.25
+        tracking_sigma = 0.08
         swing_sigma = 0.25
-        vel_sigma = 0.25
+        vel_sigma = 0.15
 
         soft_dof_pos_limit = 0.9
         soft_dof_vel_limit = 1.
@@ -49,38 +49,43 @@ class G1Cfg():
 
         root_height_target = 0.78
         feet_height_target = 0.08
+        min_feet_air_time = 0.20
+        max_feet_air_time = 0.45
         max_contact_force = 100.
 
         class scales:
             # torso stability
-            lin_vel_z = -1.0
-            ang_vel_xy = -0.2
-            orientation = -4.0
-            base_height = -10.0
+            lin_vel_z = -0.5
+            ang_vel_xy = -0.15
+            orientation = -3.0
+            base_height = -8.0
 
             # motion regularization
-            torques = -2e-4
-            dof_vel = -1e-4
-            dof_acc = -2.5e-7
-            dof_pos_limits = -10.0
-            action_rate = -0.02
-            hip_pos = -0.4
+            torques = -5e-5
+            dof_vel = -5e-5
+            dof_acc = 0.0
+            dof_pos_limits = -6.0
+            action_rate = -0.004
+            hip_pos = -0.1
+            upper_body_pose = -0.15
 
             # safety
-            termination = -150.0
+            termination = -100.0
 
             # command tracking (main learning signal)
-            tracking_lin_vel = 30.0
-            tracking_ang_vel = 3.0
+            tracking_lin_vel = 45.0
+            tracking_ang_vel = 1.5
+            forward_vel = 10.0
 
             # gait shaping
-            feet_swing_height = -30.0
-            contact = 1.2
-            contact_no_vel = -2.0
-            feet_slip = -2.0
+            feet_swing_height = -10.0
+            feet_air_time = 20.0
+            contact = 0.2
+            contact_no_vel = -0.6
+            feet_slip = -1.0
 
             # survive bonus
-            alive = 1.0
+            alive = 0.25
 
     class normalization:
         class obs_scales:

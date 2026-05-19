@@ -243,7 +243,9 @@ class PPO:
             self.critic.init_hidden_state(batch_size=obs_batch.shape[1])
 
         # 计算ratio
-        pdf = self.actor.distribution(obs_batch) # 计算当前策略的动作概率分布（t, b, a）
+        recurrent_mask = mask if isinstance(mask, torch.Tensor) else None
+
+        pdf = self.actor.distribution(obs_batch, mask=recurrent_mask) # 计算当前策略的动作概率分布（t, b, a）
         log_probs = pdf.log_prob(action_batch).sum(-1, keepdim=True) # 动作维度的对数概率相加（log空间，乘积变求和）（t, b, 1）
         
         old_log_probs = old_log_prob_batch # （t, b, 1）
@@ -256,7 +258,7 @@ class PPO:
         # 计算损失
         cpi_loss = ratio * advantage_batch * mask
         clip_loss = ratio.clamp(1.0 - self.clip, 1.0 + self.clip) * advantage_batch * mask
-        values = self.critic(obs_batch) # 计算价值（带梯度）
+        values = self.critic(obs_batch, mask=recurrent_mask) # 计算价值（带梯度）
         if isinstance(mask, torch.Tensor): # 采用循环神经网络
             mask_sum = mask.sum()
             actor_loss = -torch.min(cpi_loss, clip_loss).sum() / mask_sum
@@ -377,12 +379,12 @@ class PPO:
                         old_log_prob_batch = [old_log_probs[int(batch.traj_idx[i]):int(batch.traj_idx[i+1])] for i in indices]
                         mask               = [torch.ones_like(r) for r in return_batch] # 生成每条轨迹的全1张量并形成列表
                         # 对齐长度并转换为三维张量（t, b, ）
-                        obs_batch       = pad_sequence(obs_batch, batch_first=False)
-                        action_batch    = pad_sequence(action_batch, batch_first=False)
-                        return_batch    = pad_sequence(return_batch, batch_first=False)
-                        advantage_batch = pad_sequence(advantage_batch, batch_first=False)
+                        obs_batch          = pad_sequence(obs_batch, batch_first=False)
+                        action_batch       = pad_sequence(action_batch, batch_first=False)
+                        return_batch       = pad_sequence(return_batch, batch_first=False)
+                        advantage_batch    = pad_sequence(advantage_batch, batch_first=False)
                         old_log_prob_batch = pad_sequence(old_log_prob_batch, batch_first=False)
-                        mask            = pad_sequence(mask, batch_first=False) # 将各轨迹对应的mask对齐（短轨迹填0）
+                        mask               = pad_sequence(mask, batch_first=False) # 将各轨迹对应的mask对齐（短轨迹填0）
                     else: # 非循环网络，将数据转为（b，）
                         obs_batch          = observations[indices]
                         action_batch       = actions[indices]
